@@ -272,6 +272,40 @@ void ProcessEvent_hook(UObject* Context, UFunction* Function, void* Parms, void*
         }
     }
 
+    // capture animation sequences
+    switch (convstate)
+    {
+    case ConvState::WaitForVoiceover:
+        // link interp to conversation node
+        if (auto thisinterp = USeqAct_Interp_Activated->Matches(Context, Function); thisinterp)
+        {
+            for (int i = 0; i < node->OutputLinks.Count; i++)
+            {
+                for (int j = 0; j < node->OutputLinks.Data[i].Links.Count; j++)
+                {
+                    if (node->OutputLinks.Data[i].Links.Data[j].LinkedOp == thisinterp && thisinterp->InterpData)
+                    {
+                        interp = thisinterp;
+                        convstate = ConvState::ActiveVoiceover;
+                        LOGFORMAT("Interp activated: %s length %f", interp->GetInstancedName(), (interp->InterpData ? interp->InterpData->InterpLength : -1.0));
+                    }
+                }
+            }
+        }
+        break;
+
+    case ConvState::ActiveVoiceover:
+        if (auto thisinterp = USeqAct_Interp_Deactivated->Matches(Context, Function); thisinterp &&
+            thisinterp == interp)
+        {
+            // skipped dialogue or conversation wheel choice
+            LOGFORMAT("Interp deactivated %s", interp->GetInstancedName());
+            convstate = ConvState::WaitForVoiceover;
+            break;
+        }
+        break;
+    }
+
     // input handling
     if (UXConsole_InputKey->Matches(Context, Function))
     {
@@ -429,16 +463,7 @@ void ProcessEvent_hook(UObject* Context, UFunction* Function, void* Parms, void*
                                         LOGFORMAT("Pause");
 
                                         if (convPauseHistory)
-                                        {
-                                            subhistory->ShowSubtitle(bioWorldInfo);
-#if defined GAMELE1
-                                            if (auto convhandler = (UBioSFHandler_Conversation*)guiManager->m_oConversationPanel->m_DefaultHandler; convhandler)
-                                                convhandler->Update(0.001);
-#else
-                                            bioWorldInfo->Tick(0.001);
-#endif
-                                            subhistory->RestoreSubtitle(bioWorldInfo);
-                                        }
+                                            ReplaceDisplayedSubtitle();
                                     }
                                 }
                             }
@@ -468,42 +493,6 @@ void ProcessEvent_hook(UObject* Context, UFunction* Function, void* Parms, void*
         }
     }
 
-
-
-
-    switch (convstate)
-    {
-    case ConvState::WaitForVoiceover:
-        // link interp to conversation node
-        if (auto thisinterp = USeqAct_Interp_Activated->Matches(Context, Function); thisinterp)
-        {
-            for (int i = 0; i < node->OutputLinks.Count; i++)
-            {
-                for (int j = 0; j < node->OutputLinks.Data[i].Links.Count; j++)
-                {
-                    if (node->OutputLinks.Data[i].Links.Data[j].LinkedOp == thisinterp && thisinterp->InterpData)
-                    {
-                        interp = thisinterp;
-                        convstate = ConvState::ActiveVoiceover;
-                        LOGFORMAT("Interp activated: %s length %f", interp->GetInstancedName(), (interp->InterpData ? interp->InterpData->InterpLength : -1.0));
-                    }
-                }
-            }
-        }
-        break;
-
-    case ConvState::ActiveVoiceover:
-        if (auto thisinterp = USeqAct_Interp_Deactivated->Matches(Context, Function); thisinterp &&
-            thisinterp == interp)
-        {
-            // skipped dialogue or conversation wheel choice
-            LOGFORMAT("Interp deactivated %s", interp->GetInstancedName());
-            convstate = ConvState::WaitForVoiceover;
-            break;
-        }
-        break;
-    }
-    
 
     stoprecursion = false;
     ProcessEvent_orig(Context, Function, Parms, Result);
