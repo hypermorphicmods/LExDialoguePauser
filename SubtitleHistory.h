@@ -1,6 +1,7 @@
 #pragma once
 
 #include "DialoguePauser.h"
+#include <regex>
 
 
 enum ESubtitlesRenderMode
@@ -17,7 +18,7 @@ enum ESubtitlesRenderMode
 class SubtitleHistory
 {
 protected:
-    static const int bufsize = 1024;
+    static const int bufsize = 2048;
     wchar subs[8][bufsize];
     wchar outstr[10 * bufsize];
     wchar *header, *outptr = nullptr;
@@ -33,12 +34,19 @@ protected:
 public:
     wchar* laststr = nullptr;
     int lastsize = 0;
+#if defined GAMELE2
+    wchar* lasttitle = nullptr, * lastsubtitle = nullptr, * lastbody = nullptr;
+    int lasttitlesize = 0, lastsubtitlesize = 0, lastbodysize = 0;
+#endif
 
     SubtitleHistory(wchar* header);
     int SaveSubtitle(FString* f);
+#if defined GAMELE2
+    int SaveNotification(FString* fTitle, FString* fSubtitle, FString* fBody);
+#endif
     int Rebuild(bool reverse);
-    bool SubtitleHistory::ShowSubtitle(ABioWorldInfo* bioWorldInfo);
-    void SubtitleHistory::RestoreSubtitle(ABioWorldInfo* bioWorldInfo);
+    bool ShowSubtitle(ABioWorldInfo* bioWorldInfo);
+    void RestoreSubtitle(ABioWorldInfo* bioWorldInfo);
     wchar* GetHistory();
     bool IsShown();
 };
@@ -62,22 +70,44 @@ int SubtitleHistory::SaveSubtitle(FString* f)
     laststr = f->Data;
     lastsize = f->Count;
     
-    if (!wcsncmp(subs[current], f->Data, min(f->Count, bufsize)))
-        return 1;
-
     if (--current < 0)
         current = 7;
 
-    wcsncpy(subs[current], f->Data, min(f->Count, bufsize));
-    if (wcsnlen(subs[current], bufsize) == bufsize)
-    {
-        subs[current][bufsize - 1] = 0;
-        LOGFORMAT("String terminator added to input subtitle");
-    }
+    if (wcsncpy_s(subs[current], f->Data, min(f->Count, bufsize)))
+        LOGFORMAT("SaveSubtitle buffer size too low");
 
     return Rebuild(false);
 };
 
+#if defined GAMELE2
+int SubtitleHistory::SaveNotification(FString* fTitle, FString* fSubtitle, FString* fBody)
+{
+    if (!fTitle->Count || !fTitle->Data || !fSubtitle->Count || !fSubtitle->Data || !fBody->Count || !fBody->Data)
+        return -1;
+
+    if (lasttitle == fTitle->Data && lasttitlesize == fTitle->Count &&
+        lastsubtitle == fSubtitle->Data && lastsubtitlesize == fSubtitle->Count &&
+        lastbody == fBody->Data && lastbodysize == fBody->Count
+        )
+        return 1;
+
+    lasttitle = fTitle->Data;
+    lasttitlesize = fTitle->Count;
+    lastsubtitle = fSubtitle->Data;
+    lastsubtitlesize = fSubtitle->Count;
+    lastbody = fBody->Data;
+    lastbodysize = fBody->Count;
+
+    if (--current < 0)
+        current = 7;
+
+    basic_regex r(L"<.+?>");
+    if (swprintf_s(subs[current], bufsize, L"%s\n%s\n%s", lasttitle, regex_replace(lastsubtitle, r, L"").c_str(), regex_replace(lastbody, r, L"").c_str()));
+    LOGFORMAT("SaveNotification buffer size too low");
+
+    return Rebuild(false);
+}
+#endif
 
 int SubtitleHistory::Rebuild(bool reverse = false)
 {

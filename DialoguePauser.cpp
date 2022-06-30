@@ -2,7 +2,7 @@
 #include "DialoguePauser.h"
 #include "SubtitleHistory.h"
 
-#define VERSION L"2.0.1"
+#define VERSION L"2.1.0"
 
 #if defined GAMELE1
 SPI_PLUGINSIDE_SUPPORT(L"LE1DialoguePauser", VERSION, L"ME3Tweaks", SPI_GAME_LE1, SPI_VERSION_ANY);
@@ -73,9 +73,11 @@ int currentbc = 0;
 unordered_map<int, UBioConversation*> bcs = {};
 UBioSeqEvt_ConvNode* node = nullptr;
 USeqAct_Interp* interp = nullptr;
-SubtitleHistory* subhistory = new SubtitleHistory();
+SubtitleHistory *subhistory = new SubtitleHistory(), *notifyHistory = new SubtitleHistory();
 bool manualPauseHistory = true, convPauseHistory = false;
-
+#if defined GAMELE2
+bool showingNotifications = false;
+#endif 
 
 UGameEngine* gameEngine = nullptr;
 void DrawHUDString(UCanvas* canvas, WCHAR* hudstring, float scaleX = 1.0, float scaleY = 1.0)
@@ -117,9 +119,9 @@ void DrawHUDString(UCanvas* canvas, WCHAR* hudstring, float scaleX = 1.0, float 
     canvas->Font = savefont;
 }
 
-void ReplaceDisplayedSubtitle()
+void ReplaceDisplayedSubtitle(SubtitleHistory* history)
 {
-    subhistory->ShowSubtitle(bioWorldInfo);
+    history->ShowSubtitle(bioWorldInfo);
 #if defined GAMELE1
     // Conversation panel is hidden after the conversation ends
     guiManager->eventShowConversationGui(bioWorldInfo->m_oCurrentConversation ? bioWorldInfo->m_oCurrentConversation->IsAmbient() : 1);
@@ -130,7 +132,7 @@ void ReplaceDisplayedSubtitle()
     // update display
     bioWorldInfo->Tick(0.001);
 #endif
-    subhistory->RestoreSubtitle(bioWorldInfo);
+    history->RestoreSubtitle(bioWorldInfo);
 }
 
 void ResetDisplayedSubitle()
@@ -321,10 +323,13 @@ void ProcessEvent_hook(UObject* Context, UFunction* Function, void* Parms, void*
             if (!strcmp("F8", keyname) && event == 0)
             {
                 pausestate = PauseState::Manual;
+#if defined GAMELE2
+                showingNotifications = false;
+#endif
                 scene->eventPauseGame(true, 0);
                 LOGFORMAT("Manual pause");
                 if (manualPauseHistory)
-                    ReplaceDisplayedSubtitle();
+                    ReplaceDisplayedSubtitle(subhistory);
             }
             break;
 
@@ -334,7 +339,7 @@ void ProcessEvent_hook(UObject* Context, UFunction* Function, void* Parms, void*
                 if (event == 0)
                 {
                     if (!convPauseHistory)
-                        ReplaceDisplayedSubtitle();
+                        ReplaceDisplayedSubtitle(subhistory);
                     else
                         ResetDisplayedSubitle();
                     convPauseHistory = !convPauseHistory;
@@ -357,12 +362,26 @@ void ProcessEvent_hook(UObject* Context, UFunction* Function, void* Parms, void*
             if (!strcmp("H", keyname) && event == 0)
             {
                 if (!manualPauseHistory)
-                    ReplaceDisplayedSubtitle();
+                    ReplaceDisplayedSubtitle(subhistory);
                 else
                     ResetDisplayedSubitle();
 
                 manualPauseHistory = !manualPauseHistory;
             }
+#if defined GAMELE2
+            else if (!strcmp("N", keyname) && event == 0)
+            {
+                if (!showingNotifications)
+                    ReplaceDisplayedSubtitle(notifyHistory);
+                else
+                    if (manualPauseHistory)
+                        ReplaceDisplayedSubtitle(subhistory);
+                    else
+                        ResetDisplayedSubitle();
+
+                showingNotifications = !showingNotifications;
+            }
+#endif
             else if (!strcmp("F8", keyname) && event == 0)
             {
                 pausestate = PauseState::Unpaused;
@@ -393,6 +412,17 @@ void ProcessEvent_hook(UObject* Context, UFunction* Function, void* Parms, void*
                     subhistory->SaveSubtitle(new FString(lastsub->m_sSubtitle));
             }
         }
+
+#if defined GAMELE2
+        // save notification popups
+        if (auto notify = bioWorldInfo->LocalPlayerController->HintSystem->m_nCurrentlyDisplayedNotification;
+            bioWorldInfo->LocalPlayerController &&
+            bioWorldInfo->LocalPlayerController->HintSystem &&
+            bioWorldInfo->LocalPlayerController->HintSystem->m_bNotificationIsVisible)
+        {
+            notifyHistory->SaveNotification(&notify.sTitle, &notify.sSubtitle, &notify.sBody);
+        }
+#endif
     }
 
     // post-frame functions
@@ -463,7 +493,7 @@ void ProcessEvent_hook(UObject* Context, UFunction* Function, void* Parms, void*
                                         LOGFORMAT("Pause");
 
                                         if (convPauseHistory)
-                                            ReplaceDisplayedSubtitle();
+                                            ReplaceDisplayedSubtitle(subhistory);
                                     }
                                 }
                             }
@@ -478,10 +508,17 @@ void ProcessEvent_hook(UObject* Context, UFunction* Function, void* Parms, void*
             break;
 
         case PauseState::Manual:
-            if (manualPauseHistory)
-                DrawHUDString(((ABioHUD*)Context)->Canvas, L"F8: Unpause\nH: Disable history");
-            else
-                DrawHUDString(((ABioHUD*)Context)->Canvas, L"F8: Unpause\nH: Enable history");
+            wchar displaystr[256];
+            swprintf(displaystr, 256, L"F8: Unpause\n%s\n%s",
+#if defined GAMELE1
+                manualPauseHistory ? L"H: Disable history" : L"H: Enable history",
+                L""
+#else
+                (showingNotifications ? L"N: Hide notifications" : (manualPauseHistory ? L"H: Disable history" : L"H: Enable history")),
+                (showingNotifications ? L"" : L"N: Show notification history")
+#endif
+            );
+            DrawHUDString(((ABioHUD*)Context)->Canvas, displaystr);
             break;
 
         case PauseState::Dialogue:

@@ -17,14 +17,15 @@
 FILE* logs;
 DWORD64 starttime = GetTickCount64();
 #define LOGFORMAT(...) \
-{\
-    fprintf(logs, "[%f] %s\n", (GetTickCount64() - starttime)/1000.0f, string_format(__VA_ARGS__).c_str()) ;\
-    fflush(logs); printf("[%f] %s\n", (GetTickCount64() - starttime)/1000.0f, string_format(__VA_ARGS__).c_str()) ; \
+{ \
+    fprintf(logs, "[%f] %s\n", (GetTickCount64() - starttime)/1000.0f, string_format(__VA_ARGS__).c_str()) ; \
+    fflush(logs); \
+    printf("[%f] %s\n", (GetTickCount64() - starttime)/1000.0f, string_format(__VA_ARGS__).c_str()) ; \
 }
 #define LOGFORMATW(...) \
-{\
-    fwprintf(logs, L"[%f] %s\n", (GetTickCount64() - starttime)/1000.0f, wstring_format(__VA_ARGS__).c_str()) ;\
-    fflush(logs);\
+{ \
+    fwprintf(logs, L"[%f] %s\n", (GetTickCount64() - starttime)/1000.0f, wstring_format(__VA_ARGS__).c_str()) ; \
+    fflush(logs); \
 }
 #else
 #define LOGFORMAT(...) ;
