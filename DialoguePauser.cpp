@@ -2,22 +2,22 @@
 #include "DialoguePauser.h"
 #include "SubtitleHistory.h"
 
-#define VERSION L"2.1.0"
+#define VERSION L"2.1.1"
 
 #if defined GAMELE1
-SPI_PLUGINSIDE_SUPPORT(L"LE1DialoguePauser", VERSION, L"ME3Tweaks", SPI_GAME_LE1, SPI_VERSION_ANY);
+SPI_PLUGINSIDE_SUPPORT(L"LE1DialoguePauser", VERSION, L"hypermorphic", SPI_GAME_LE1, SPI_VERSION_ANY);
 #define MYHOOK "LE1DialoguePauser_"
 #define LOGNAME "LE1DialoguePauser.log"
 #define ENGINENAME "GameEngine_0"
 #define EXENAME L"MassEffect1.exe"
 #elif defined GAMELE2
-SPI_PLUGINSIDE_SUPPORT(L"LE2DialoguePauser", VERSION, L"ME3Tweaks", SPI_GAME_LE2, SPI_VERSION_ANY);
+SPI_PLUGINSIDE_SUPPORT(L"LE2DialoguePauser", VERSION, L"hypermorphic", SPI_GAME_LE2, SPI_VERSION_ANY);
 #define MYHOOK "LE2DialoguePauser_"
 #define LOGNAME "LE2DialoguePauser.log"
 #define ENGINENAME "SFXEngine_0"
 #define EXENAME L"MassEffect2.exe"
 #elif defined GAMELE3
-SPI_PLUGINSIDE_SUPPORT(L"LE3DialoguePauser", VERSION, L"ME3Tweaks", SPI_GAME_LE3, SPI_VERSION_ANY);
+SPI_PLUGINSIDE_SUPPORT(L"LE3DialoguePauser", VERSION, L"hypermorphic", SPI_GAME_LE3, SPI_VERSION_ANY);
 #define MYHOOK "LE3DialoguePauser_"
 #define LOGNAME "LE3DialoguePauser.log"
 #define ENGINENAME "SFXEngine_0"
